@@ -1,10 +1,11 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
-namespace Bulky.Model
+namespace Bulky.Models
 {
     public class Category
     {
+        [Key]
         public int Id { get; set; }
         // Data annotations
         [Required]

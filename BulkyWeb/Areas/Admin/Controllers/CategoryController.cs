@@ -1,20 +1,23 @@
 ﻿using Bulky.DataAccess.Data;
-using Bulky.Model;
+using Bulky.DataAccess.Repository;
+using Bulky.DataAccess.Repository.IRepository;
+using Bulky.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace Bulky.DataAccess.Migrations
+namespace BulkyWeb.Areas.Admin.Controllers
 {
+    [Area("Admin")]
     public class CategoryController : Controller
     {
-        private readonly ApplicationDbContext _db;
-        public CategoryController(ApplicationDbContext db)
+        private readonly IUnitOfWork _unitOfWork;
+        public CategoryController(IUnitOfWork unitOfWork)
         {
-            _db = db;
+            _unitOfWork = unitOfWork;
         }
         public IActionResult Index()
         {
-            List<Category> objCategoryList = _db.Categories.ToList();
+            List<Category> objCategoryList = _unitOfWork.Category.GetAll().ToList();
             return View(objCategoryList);
         }
 
@@ -26,7 +29,7 @@ namespace Bulky.DataAccess.Migrations
         public IActionResult Create(Category obj)
         {
             // Custom validations
-            if (obj.Name.Equals(obj.DisplayOrder.ToString())) 
+            if (obj.Name.Equals(obj.DisplayOrder.ToString()))
             {
                 ModelState.AddModelError("name", "The DisplayOrder cannot exactly match the name");
             }
@@ -37,8 +40,8 @@ namespace Bulky.DataAccess.Migrations
             // Verifies if the obj provided is valid and checks for the model validation
             if (ModelState.IsValid)
             {
-                _db.Categories.Add(obj); // Keeps track of what needs to be added
-                _db.SaveChanges(); // Saves the obj into the database
+                _unitOfWork.Category.Add(obj); // Keeps track of what needs to be added
+                _unitOfWork.Save(); // Saves the obj into the database
                 TempData["success"] = "Category created successfully"; // TempData used to show a message after a CRUD operation is sucessful
                 return RedirectToAction("Index", "Category");
             }
@@ -47,15 +50,15 @@ namespace Bulky.DataAccess.Migrations
 
         public IActionResult Edit(int? id)
         {
-            if(id == null || id == 0) 
+            if (id == null || id == 0)
             {
                 return NotFound();
             }
             // Some ways of get data with the id when editing 
-            Category? categoryFromDb = _db.Categories.Find(id);
+            Category? categoryFromDb = _unitOfWork.Category.Get(u => u.Id == id);
             //Category? categoryFromD1 = _db.Categories.FirstOrDefault(u => u.Id == id);
             //Category? categoryFromDb2 = _db.Categories.Where(u => u.Id == id).FirstOrDefault();
-            if (categoryFromDb == null) 
+            if (categoryFromDb == null)
             {
                 return NotFound();
             }
@@ -67,8 +70,8 @@ namespace Bulky.DataAccess.Migrations
             // Verifies if the obj provided is valid and checks for the model validation
             if (ModelState.IsValid)
             {
-                _db.Categories.Update(obj); // Keeps track of what needs to be added
-                _db.SaveChanges(); // Saves the obj into the database
+                _unitOfWork.Category.Update(obj); // Keeps track of what needs to be added
+                _unitOfWork.Save(); // Saves the obj into the database
                 TempData["success"] = "Category created successfully"; TempData["success"] = "Category updated successfully"; // TempData used to show a message after a CRUD operation is sucessful
                 return RedirectToAction("Index", "Category");
             }
@@ -82,7 +85,7 @@ namespace Bulky.DataAccess.Migrations
                 return NotFound();
             }
             // Some ways of get data with the id when editing 
-            Category? categoryFromDb = _db.Categories.Find(id);
+            Category? categoryFromDb = _unitOfWork.Category.Get(u => u.Id == id);
             //Category? categoryFromD1 = _db.Categories.FirstOrDefault(u => u.Id == id);
             //Category? categoryFromDb2 = _db.Categories.Where(u => u.Id == id).FirstOrDefault();
             if (categoryFromDb == null)
@@ -94,13 +97,13 @@ namespace Bulky.DataAccess.Migrations
         [HttpPost, ActionName("Delete")]
         public IActionResult DeletePOST(int? id)
         {
-            Category obj = _db.Categories.Find(id);
+            Category obj = _unitOfWork.Category.Get(u => u.Id == id);
             if (obj == null)
             {
                 return NotFound();
             }
-            _db.Categories.Remove(obj); // Keeps track of what needs to be deleted
-            _db.SaveChanges(); // Deletes the obj from the database
+            _unitOfWork.Category.Remove(obj); // Keeps track of what needs to be deleted
+            _unitOfWork.Save(); // Deletes the obj from the database
             TempData["success"] = "Category created successfully"; TempData["success"] = "Category deleted successfully"; // TempData used to show a message after a CRUD operation is sucessful
             return RedirectToAction("Index", "Category");
         }
