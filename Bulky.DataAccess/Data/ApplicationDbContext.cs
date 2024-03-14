@@ -1,9 +1,10 @@
 ﻿using Bulky.Models;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bulky.DataAccess.Data
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : IdentityDbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
@@ -12,14 +13,28 @@ namespace Bulky.DataAccess.Data
 
         public DbSet<Category> Categories { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<Company> Companies { get; set; }
+
+        // This adds the extra fields to the identity users table in the database
+        // (The discriminator attribute tells if the user is an identity user or an application user)
+        public DbSet<ApplicationUser> ApplicationUsers { get; set; }
+     
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Needs to be called or identity won't work (keys of the identity table are mapped with this method)
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<Category>().HasData(
                 new Category { Id = 1, Name="Action", DisplayOrder = 1 },
                 new Category { Id = 2, Name = "SciFi", DisplayOrder = 2 },
                 new Category { Id = 3, Name = "History", DisplayOrder = 3 }
                 );
+
+            modelBuilder.Entity<Company>().HasData(
+             new Company { Id = 1, Name = "Tech Solution", StreetAddress = "123 Techs St", City="Tech City", State="Tech State", PostalCode="123", PhoneNumber="969969969" },
+             new Company { Id = 2, Name = "SomeBook Solution", StreetAddress = "123 SomeBook St", City= "SomeBook City", State= "SomeBook State", PostalCode="123", PhoneNumber="969969969" }
+             );
 
             modelBuilder.Entity<Product>().HasData(
                 new Product
