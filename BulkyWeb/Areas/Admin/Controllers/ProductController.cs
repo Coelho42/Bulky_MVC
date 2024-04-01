@@ -51,43 +51,18 @@ namespace BulkyWeb.Areas.Admin.Controllers
             else
             {
                 // Update
-                productVM.Product = _unitOfWork.Product.Get(u => u.Id == id);
+                productVM.Product = _unitOfWork.Product.Get(u => u.Id == id, includeProperties:"ProductImages");
                 return View(productVM);
             }
         }
         [HttpPost]
         // IForm file for file upload
-        public IActionResult Upsert(ProductVM obj, IFormFile? file)
+        public IActionResult Upsert(ProductVM obj, List<IFormFile> files)
         {
             // Verifies if the obj provided is valid and checks for the model validation
             if (ModelState.IsValid)
             {
-
-                // Code to add an image to the wwwroot folder
-                string wwwRootPath = _webHostEnvironment.WebRootPath;
-                if(file != null)
-                {
-                    string fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
-                    string productPath = Path.Combine(wwwRootPath, @"images\product");
-
-                    if (!string.IsNullOrEmpty(obj.Product.ImageUrl))
-                    {
-                        // delete the old image
-                        var oldImagePath = Path.Combine(wwwRootPath, obj.Product.ImageUrl.TrimStart('\\'));
-
-                        if(System.IO.File.Exists(oldImagePath))
-                        {
-                            System.IO.File.Delete(oldImagePath);
-                        }
-                    }
-                    using (var fileStream = new FileStream(Path.Combine(productPath, fileName), FileMode.Create))
-                    {
-                        file.CopyTo(fileStream);
-                    }
-                    obj.Product.ImageUrl = @"\images\product\" + fileName;
-                }
-
-                if(obj.Product.Id == 0) 
+                if (obj.Product.Id == 0)
                 {
                     _unitOfWork.Product.Add(obj.Product);
                 }
@@ -96,8 +71,43 @@ namespace BulkyWeb.Areas.Admin.Controllers
                     _unitOfWork.Product.Update(obj.Product);
                 }
                 _unitOfWork.Save(); // Saves the obj into the database
-                TempData["success"] = "Product created successfully"; // TempData used to show a message after a CRUD operation is sucessful
-                return RedirectToAction("Index", "Product");
+
+                // Code to add an image to the wwwroot folder
+                string wwwRootPath = _webHostEnvironment.WebRootPath;
+                if (files != null)
+                {
+                    foreach(IFormFile file in files)
+                    {
+                        string fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+                        string productPath = @"images\products\product-" + obj.Product.Id;
+                        string finalPath = Path.Combine(wwwRootPath, productPath);
+
+                        if(!Directory.Exists(finalPath))
+                        {
+                            Directory.CreateDirectory(finalPath);
+                        }
+
+                        using (var fileStream = new FileStream(Path.Combine(finalPath, fileName), FileMode.Create))
+                        {
+                            file.CopyTo(fileStream);
+                        }
+                        ProductImage productImage = new()
+                        {
+                            ImageURL = @"\" + productPath + @"\" + fileName,
+                            ProductId = obj.Product.Id,
+                        };
+                        if(obj.Product.ProductImages == null)
+                        {
+                            obj.Product.ProductImages = new List<ProductImage>();
+                      
+                        }
+                        obj.Product.ProductImages.Add(productImage);
+                    }
+                    _unitOfWork.Product.Update(obj.Product);
+                    _unitOfWork.Save();
+                }
+                TempData["success"] = "Product created/updated successfully"; // TempData used to show a message after a CRUD operation is sucessful
+                return RedirectToAction("Index");
             }
             else
             {
@@ -108,6 +118,31 @@ namespace BulkyWeb.Areas.Admin.Controllers
                 });
                 return View(obj);
             }
+        }
+
+        public IActionResult DeleteImage(int imageId)
+        {
+            var imageToBeDeleted = _unitOfWork.ProductImage.Get(u => u.Id == imageId);
+            int productId = imageToBeDeleted.ProductId;
+            if(imageToBeDeleted != null)
+            {
+                if (!string.IsNullOrEmpty(imageToBeDeleted.ImageURL))
+                {
+                    // delete the old image
+                    var oldImagePath = Path.Combine(_webHostEnvironment.WebRootPath,
+                        imageToBeDeleted.ImageURL.TrimStart('\\'));
+
+                    if (System.IO.File.Exists(oldImagePath))
+                    {
+                        System.IO.File.Delete(oldImagePath);
+                    }
+                }
+                _unitOfWork.ProductImage.Remove(imageToBeDeleted);
+                _unitOfWork.Save();
+
+                TempData["success"] = "Deleted successfully";
+            }
+            return RedirectToAction(nameof(Upsert), new {id = productId});
         }
 
         #region API CALLS
@@ -127,13 +162,20 @@ namespace BulkyWeb.Areas.Admin.Controllers
             {
                 return Json(new { success = false, message = "Error while deleting" });
             }
-            // delete the old image
-            var oldImagePath = Path.Combine(_webHostEnvironment.WebRootPath, productTobeDeleted.ImageUrl.TrimStart('\\'));
 
-            if (System.IO.File.Exists(oldImagePath))
+            string productPath = @"images\products\product-" + id;
+            string finalPath = Path.Combine(_webHostEnvironment.WebRootPath, productPath);
+
+            if (!Directory.Exists(finalPath))
             {
-                System.IO.File.Delete(oldImagePath);
+                string[] filePaths = Directory.GetFiles(finalPath);
+                foreach (string filePath in filePaths)
+                {
+                    System.IO.File.Delete(filePath);
+                }
+                Directory.Delete(finalPath);
             }
+
             _unitOfWork.Product.Remove(productTobeDeleted);
             _unitOfWork.Save();
 
